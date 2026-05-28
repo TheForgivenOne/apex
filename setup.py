@@ -2,18 +2,24 @@ from setuptools import setup, find_packages
 
 setup(
     name="apex-web",
-    version="0.1.0",
-    description="A modern Python web framework with file-based routing",
+    version="0.2.0",
+    description="A Python web framework with Live Components, ORM, and template engine",
     long_description=open("README.md").read() if __import__("os").path.exists("README.md") else "",
     long_description_content_type="text/markdown",
-    author="Apex Team",
+    author="forone",
+    author_email="successmove000@gmail.com",
+    url="https://github.com/TheForgivenOne/apex",
+    project_urls={
+        "Source": "https://github.com/TheForgivenOne/apex",
+        "Tracker": "https://github.com/TheForgivenOne/apex/issues",
+    },
     packages=find_packages(),
     include_package_data=True,
     install_requires=[
         "uvicorn>=0.20.0",
     ],
     extras_require={
-        "dev": ["watchfiles>=1.0.0"],
+        "dev": ["watchfiles>=1.0.0", "pytest>=7.0.0"],
     },
     entry_points={
         "console_scripts": [
@@ -32,5 +38,6 @@ setup(
         "Framework :: Apex",
         "Topic :: Internet :: WWW/HTTP :: WSGI :: Server",
         "Topic :: Internet :: WWW/HTTP :: Dynamic Content",
+        "Topic :: Software Development :: Libraries :: Application Frameworks",
     ],
 )

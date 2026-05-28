@@ -95,12 +95,15 @@ class Context:
                 return lv or rv
         return self.resolve(expr)
 
+    def get_bool(self, expr: str) -> bool:
+        return bool(self._eval_expr(expr))
+
     def _apply_filter(self, val: Any, name: str) -> Any:
         if "(" in name and name.endswith(")"):
             paren_idx = name.index("(")
             fn = name[:paren_idx]
             args_str = name[paren_idx+1:-1]
-            args = [a.strip().strip("\"'") for a in args_str.split(",") if a.strip()]
+            args = _parse_filter_args(args_str)
         else:
             fn = name
             args = []
@@ -108,6 +111,31 @@ class Context:
         if filter_fn:
             return filter_fn(val, *args)
         return val
+
+
+def _parse_filter_args(s: str) -> list:
+    args = []
+    current = []
+    in_quote = False
+    quote_char = None
+    for c in s:
+        if in_quote:
+            if c == quote_char:
+                in_quote = False
+            else:
+                current.append(c)
+        elif c in ("'", '"'):
+            in_quote = True
+            quote_char = c
+        elif c == ",":
+            args.append("".join(current).strip())
+            current = []
+        else:
+            current.append(c)
+    rest = "".join(current)
+    if rest:
+        args.append(rest)
+    return args
 
     def get_bool(self, expr: str) -> bool:
         return bool(self._eval_expr(expr))
@@ -256,20 +284,13 @@ class Template:
                     i = end
                 elif value.startswith("if "):
                     cond = value[3:].strip()
-                    end = self._find_else_or_endif(tokens, i)
-                    else_idx = None
-                    for j in range(i+1, end):
-                        if tokens[j][0] == "tag" and (tokens[j][1].startswith("else") or tokens[j][1] == "endif"):
-                            if tokens[j][1].startswith("else"):
-                                else_idx = j
-                            break
-                    if else_idx is None:
-                        else_idx = end
+                    endif = self._find_endif(tokens, i)
+                    else_idx = self._find_else(tokens, i, endif)
                     if ctx.get_bool(cond):
-                        result.append(self._render_tokens(tokens[i+1:else_idx], ctx))
-                    else:
-                        result.append(self._render_tokens(tokens[else_idx+1:end], ctx))
-                    i = end
+                        result.append(self._render_tokens(tokens[i+1:else_idx or endif], ctx))
+                    elif else_idx is not None:
+                        result.append(self._render_tokens(tokens[else_idx+1:endif], ctx))
+                    i = endif
                 elif value == "endif" or value == "endfor" or value.startswith("endblock"):
                     pass
             i += 1
@@ -305,7 +326,21 @@ class Template:
                     depth += 1
         return len(tokens) - 1
 
-    def _find_else_or_endif(self, tokens: List[tuple], start: int) -> int:
+    def _find_else(self, tokens: List[tuple], start: int, endif: int):
+        depth = 1
+        for j in range(start + 1, endif):
+            if tokens[j][0] != "tag":
+                continue
+            tag = tokens[j][1]
+            if tag.startswith("if "):
+                depth += 1
+            elif tag == "endif":
+                depth -= 1
+            elif tag.startswith("else") and depth == 1:
+                return j
+        return None
+
+    def _find_endif(self, tokens: List[tuple], start: int) -> int:
         depth = 1
         for i in range(start + 1, len(tokens)):
             if tokens[i][0] == "tag":
@@ -316,8 +351,6 @@ class Template:
                     depth -= 1
                     if depth == 0:
                         return i
-                elif tag.startswith("else") and depth == 1:
-                    return i
         return len(tokens) - 1
 
 

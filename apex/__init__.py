@@ -8,7 +8,7 @@ from . import db
 from . import auth
 from . import forms
 from . import flash
-from .db import Model, Field, Database, init_db, set_db_path, get_db
+from .db import Model, Field, Database, init_db, set_db_path, get_db, clear_model_registry
 
 __version__ = "0.2.0"
 

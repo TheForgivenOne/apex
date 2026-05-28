@@ -225,3 +225,7 @@ class Model(metaclass=ModelMeta):
 def init_db():
     for model_cls in list(_model_registry):
         model_cls.create_table()
+
+
+def clear_model_registry():
+    _model_registry.clear()

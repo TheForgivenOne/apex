@@ -53,7 +53,7 @@ class Router:
         methods: Optional[List[str]] = None,
         name: Optional[str] = None,
     ):
-        route = Route(path, handler, methods, name)
+        route = Route(path, handler, methods or ["GET"], name)
         self.routes.append(route)
         if "{" in path:
             self._dynamic_routes.append(route)
