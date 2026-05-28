@@ -1,7 +1,7 @@
 import re
 import os
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple
 from html import escape
 
 
@@ -14,28 +14,140 @@ class Context:
         self.data = data
         self.blocks: Dict[str, str] = {}
 
-    def get(self, key: str, default: Any = "") -> Any:
-        key = key.strip()
-        if key.startswith("not "):
-            val = self.get(key[4:].strip())
-            return not val
-        parts = key.split(".")
+    def resolve(self, expr: str) -> Any:
+        parts = expr.split(".")
         val = self.data
         for p in parts:
             p = p.strip()
-            if isinstance(val, dict):
-                val = val.get(p, default)
-            elif isinstance(val, (list, tuple)) and p.isdigit():
-                try:
-                    val = val[int(p)]
-                except (IndexError, ValueError):
-                    return default
+            bracket_idx = p.find("[")
+            if bracket_idx != -1:
+                var_part = p[:bracket_idx]
+                if var_part:
+                    if isinstance(val, dict):
+                        val = val.get(var_part)
+                    elif isinstance(val, (list, tuple)):
+                        try:
+                            val = val[int(var_part)]
+                        except (IndexError, ValueError):
+                            return ""
+                    else:
+                        try:
+                            val = getattr(val, var_part, "")
+                        except Exception:
+                            return ""
+                rest = p[bracket_idx:]
+                if rest:
+                    val = self._apply_slice_or_index(val, rest)
             else:
-                try:
-                    val = getattr(val, p, default)
-                except Exception:
-                    return default
+                if isinstance(val, dict):
+                    val = val.get(p, "")
+                elif isinstance(val, (list, tuple)) and p.isdigit():
+                    try:
+                        val = val[int(p)]
+                    except (IndexError, ValueError):
+                        return ""
+                else:
+                    try:
+                        val = getattr(val, p, "")
+                    except Exception:
+                        return ""
         return val
+
+    def _apply_slice_or_index(self, val: Any, expr: str) -> Any:
+        match = re.match(r'^\[(-?\d+)?:(-?\d+)?\]$', expr)
+        if match:
+            start = int(match.group(1)) if match.group(1) is not None else None
+            end = int(match.group(2)) if match.group(2) is not None else None
+            try:
+                return val[start:end]
+            except Exception:
+                return ""
+        match = re.match(r'^\[(-?\d+)\]$', expr)
+        if match:
+            idx = int(match.group(1))
+            try:
+                return val[idx]
+            except (IndexError, KeyError, TypeError):
+                return ""
+        return val
+
+    def get(self, key: str, default: Any = "") -> str:
+        key = key.strip()
+        parts = key.split("|")
+        expr = parts[0].strip()
+        filter_names = [f.strip() for f in parts[1:]]
+        val = self._eval_expr(expr)
+        for fn in filter_names:
+            val = self._apply_filter(val, fn)
+        return val
+
+    def _eval_expr(self, expr: str) -> Any:
+        if expr.startswith("not "):
+            return not self._eval_expr(expr[4:].strip())
+        parts = re.split(r'\s+(and|or)\s+', expr, maxsplit=1)
+        if len(parts) == 3:
+            left, op, right = parts[0].strip(), parts[1].strip(), parts[2].strip()
+            lv = self._eval_expr(left)
+            rv = self._eval_expr(right)
+            if op == "and":
+                return lv and rv
+            elif op == "or":
+                return lv or rv
+        return self.resolve(expr)
+
+    def _apply_filter(self, val: Any, name: str) -> Any:
+        if "(" in name and name.endswith(")"):
+            paren_idx = name.index("(")
+            fn = name[:paren_idx]
+            args_str = name[paren_idx+1:-1]
+            args = [a.strip().strip("\"'") for a in args_str.split(",") if a.strip()]
+        else:
+            fn = name
+            args = []
+        filter_fn = BUILTIN_FILTERS.get(fn)
+        if filter_fn:
+            return filter_fn(val, *args)
+        return val
+
+    def get_bool(self, expr: str) -> bool:
+        return bool(self._eval_expr(expr))
+
+
+BUILTIN_FILTERS: Dict[str, Callable] = {}
+
+def register_filter(name: str, fn: Callable):
+    BUILTIN_FILTERS[name] = fn
+
+register_filter("upper", lambda v: str(v).upper())
+register_filter("lower", lambda v: str(v).lower())
+register_filter("capitalize", lambda v: str(v).capitalize())
+register_filter("title", lambda v: str(v).title())
+register_filter("trim", lambda v: str(v).strip())
+register_filter("length", lambda v: len(v) if hasattr(v, "__len__") else len(str(v)))
+register_filter("urlencode", lambda v: __import__("urllib.parse").parse.quote(str(v)))
+register_filter("safe", lambda v: v if isinstance(v, str) else str(v))
+register_filter("int", lambda v: int(v) if v else 0)
+
+def _join_filter(v, sep=", "):
+    if isinstance(v, (list, tuple)):
+        return sep.join(str(x) for x in v)
+    return str(v)
+
+def _default_filter(v, default=""):
+    return v if v else default
+
+def _truncate_filter(v, length="255", suffix="..."):
+    try:
+        l = int(length)
+    except ValueError:
+        l = 255
+    if hasattr(v, "__len__") and len(v) > l:
+        return str(v)[:l] + str(suffix)
+    return str(v) if v else ""
+
+register_filter("join", _join_filter)
+register_filter("default", _default_filter)
+register_filter("truncate", _truncate_filter)
 
 
 class Template:
@@ -64,7 +176,8 @@ class Template:
                     tokens.append(("text", self.source[i:]))
                     break
                 expr = self.source[i+2:end].strip()
-                tokens.append(("expr", expr))
+                has_filters = "|" in expr
+                tokens.append(("expr_raw" if has_filters else "expr", expr))
                 i = end + 2
             elif self.source[i:i+2] == "{%":
                 end = self.source.find("%}", i)
@@ -104,6 +217,8 @@ class Template:
             if ttype == "text":
                 result.append(value)
             elif ttype == "expr":
+                result.append(escape(str(ctx.get(value, ""))))
+            elif ttype == "expr_raw":
                 result.append(str(ctx.get(value, "")))
             elif ttype == "raw":
                 val = ctx.get(value, "")
@@ -150,7 +265,7 @@ class Template:
                             break
                     if else_idx is None:
                         else_idx = end
-                    if ctx.get(cond, False):
+                    if ctx.get_bool(cond):
                         result.append(self._render_tokens(tokens[i+1:else_idx], ctx))
                     else:
                         result.append(self._render_tokens(tokens[else_idx+1:end], ctx))

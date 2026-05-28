@@ -6,7 +6,7 @@
     <div class="card post-card">
         <h2><a href="/post/{{ post.id }}">{{ post.title }}</a></h2>
         <p class="meta">by {{ post.username }} &middot; {{ post.created_at }}</p>
-        <p>{{ post.excerpt }}</p>
+        <p>{{ post.body|truncate(200) }}</p>
     </div>
 {% endfor %}
 {% if not posts %}

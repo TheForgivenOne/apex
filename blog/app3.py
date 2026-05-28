@@ -144,8 +144,6 @@ def logout(request):
 def home(request):
     user = get_user(request)
     posts = Post.raw("SELECT p.*, u.username FROM posts p JOIN users u ON p.author_id = u.id ORDER BY p.created_at DESC")
-    for p in posts:
-        p["excerpt"] = p["body"][:200] + ("..." if len(p["body"]) > 200 else "")
     flashes = flash.get_flashed_messages(request)
     flash_html = "".join(f'<div class="flash flash-{c}">{m}</div>' for c, m in flashes)
     return render_template("home.html", posts=posts, user=user, flashes=flash_html)

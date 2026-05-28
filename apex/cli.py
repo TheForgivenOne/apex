@@ -7,37 +7,90 @@ from pathlib import Path
 
 
 TEMPLATE_PROJECT = {
-    "app.py": """from apex import Apex
+    "app.py": """from apex import *
 
-app = Apex()
+app = Apex(db_path="data.db")
+setup_templates(["templates"])
+
+
+class Task(Model):
+    title: str
+    done: bool
+
 
 @app.get("/")
-async def home(request):
-    return "<h1>Welcome to Apex!</h1><p>Your app is running.</p>"
+def home(request):
+    tasks = Task.all()
+    return render_template("index.html", tasks=tasks)
+
+
+@app.post("/add")
+async def add(request):
+    form = await request.form()
+    Task.create(title=form.get("title", "").strip(), done=False)
+    return RedirectResponse("/")
+
+
+@app.get("/done/{id}")
+def mark_done(request):
+    Task.update(where={"id": int(request.path_params["id"])}, values={"done": True})
+    return RedirectResponse("/")
+
+
+@app.get("/delete/{id}")
+def delete_task(request):
+    Task.delete(id=int(request.path_params["id"]))
+    return RedirectResponse("/")
+
 
 if __name__ == "__main__":
     app.serve()
 """,
-    "pages/index.py": """from apex import HTMLResponse
-
-async def handler(request):
-    return HTMLResponse("<h1>Home</h1><p>File-based routing!</p>")
+    "templates/layout.html": """<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Apex Todo</title>
+    <style>
+        * { margin:0; padding:0; box-sizing:border-box; }
+        body { font-family:system-ui,sans-serif; max-width:600px; margin:0 auto; padding:2rem; }
+        h1 { margin-bottom:1rem; }
+        a { color:#0070f3; text-decoration:none; }
+        .card { background:#f9f9f9; padding:1rem; border-radius:8px; margin-bottom:0.5rem;
+                display:flex; justify-content:space-between; align-items:center; }
+        .done { text-decoration:line-through; color:#999; }
+        form { display:flex; gap:0.5rem; margin-bottom:2rem; }
+        input[type=text] { flex:1; padding:0.5rem; border:1px solid #ccc; border-radius:6px; font-size:1rem; }
+        button { padding:0.5rem 1rem; background:#0070f3; color:white; border:none; border-radius:6px; cursor:pointer; }
+        .empty { color:#999; text-align:center; padding:2rem; }
+    </style>
+</head>
+<body>
+    <h1>Todo</h1>
+    <form method="POST" action="/add">
+        <input type="text" name="title" placeholder="What needs to be done?" required>
+        <button>Add</button>
+    </form>
+    <main>{% block content %}{% endblock %}</main>
+</body>
+</html>
 """,
-    "pages/about.py": """async def handler(request):
-    return "<h1>About</h1><p>This page uses file-based routing.</p>"
-""",
-    "pages/blog/[slug].py": """async def handler(request):
-    slug = request.path_params.get("slug", "unknown")
-    return f"<h1>Blog Post: {slug}</h1>"
-""",
-    "pages/api/hello.py": """from apex import JSONResponse
-
-async def handler(request):
-    return JSONResponse({"message": "Hello from API!"})
-""",
-    "public/style.css": """* { margin: 0; padding: 0; box-sizing: border-box; }
-body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 2rem; }
-h1 { color: #333; margin-bottom: 1rem; }
+    "templates/index.html": """{% extends "layout.html" %}
+{% block content %}
+{% for task in tasks %}
+    <div class="card">
+        <span class="{% if task.done %}done{% endif %}">{{ task.title }}</span>
+        <div>
+            {% if not task.done %}<a href="/done/{{ task.id }}">Done</a>{% endif %}
+            <a href="/delete/{{ task.id }}" style="color:#e00;">Delete</a>
+        </div>
+    </div>
+{% endfor %}
+{% if not tasks %}
+    <div class="empty">No tasks yet. Add one above!</div>
+{% endif %}
+{% endblock %}
 """,
     "README.md": """# Apex App
 
@@ -59,11 +112,7 @@ def new_command(args):
         print(f"Error: Directory '{args.name}' already exists.")
         sys.exit(1)
     project_dir.mkdir(parents=True)
-    (project_dir / "pages").mkdir(exist_ok=True)
-    (project_dir / "pages" / "blog").mkdir(exist_ok=True)
-    (project_dir / "pages" / "api").mkdir(exist_ok=True)
-    (project_dir / "public").mkdir(exist_ok=True)
-    (project_dir / "components").mkdir(exist_ok=True)
+    (project_dir / "templates").mkdir(exist_ok=True)
     for filename, content in TEMPLATE_PROJECT.items():
         filepath = project_dir / filename
         filepath.parent.mkdir(exist_ok=True)
