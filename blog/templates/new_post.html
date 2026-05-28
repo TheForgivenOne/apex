@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block title %}New Post{% endblock %}
+{% block content %}
+<h1>New Post</h1>
+<form method="POST" action="/new">
+    <div class="form-field">
+        <label>Title</label>
+        <input name="title" placeholder="Post title" required>
+    </div>
+    <div class="form-field">
+        <label>Body</label>
+        <textarea name="body" placeholder="Write your post here..." required></textarea>
+    </div>
+    <button class="btn btn-primary">Publish</button>
+    <a href="/dashboard" class="btn">Cancel</a>
+</form>
+{% endblock %}

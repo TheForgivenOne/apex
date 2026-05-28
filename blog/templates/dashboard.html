@@ -1,0 +1,27 @@
+{% extends "layout.html" %}
+{% block title %}Dashboard{% endblock %}
+{% block content %}
+<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem;">
+    <h1>Dashboard</h1>
+    <a href="/new" class="btn btn-primary">New Post</a>
+</div>
+<p class="meta">Welcome back, {{ user.username }} ({{ user.email }})</p>
+<h3 style="margin-top:2rem;margin-bottom:1rem;">Your Posts</h3>
+{% for post in posts %}
+    <div class="card" style="display:flex;justify-content:space-between;align-items:center;">
+        <div>
+            <strong><a href="/post/{{ post.id }}">{{ post.title }}</a></strong>
+            <span class="meta">{{ post.created_at }}</span>
+        </div>
+        <div>
+            <a href="/edit/{{ post.id }}" class="btn btn-sm">Edit</a>
+            <a href="/delete/{{ post.id }}" class="btn btn-sm"
+               style="background:#e00;color:white;"
+               onclick="return confirm('Delete this post?')">Delete</a>
+        </div>
+    </div>
+{% endfor %}
+{% if not posts %}
+    <p>No posts yet. <a href="/new">Write your first post!</a></p>
+{% endif %}
+{% endblock %}

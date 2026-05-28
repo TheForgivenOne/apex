@@ -1,0 +1,14 @@
+{% extends "layout.html" %}
+{% block title %}{{ title }}{% endblock %}
+{% block content %}
+<div class="card" style="max-width:600px;">
+    <h1>{{ title }}</h1>
+    <form method="POST" action="{{ action }}">
+        {{! form }}
+        <button class="btn btn-primary">{{ submit_text or "Submit" }}</button>
+    </form>
+    {% if extra_link %}
+        <p style="margin-top:1rem;text-align:center;">{{! extra_link }}</p>
+    {% endif %}
+</div>
+{% endblock %}

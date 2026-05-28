@@ -1,0 +1,35 @@
+{% extends "layout.html" %}
+{% block title %}{{ post.title }}{% endblock %}
+{% block content %}
+<p><a href="/">&larr; Back to posts</a></p>
+<h1>{{ post.title }}</h1>
+<p class="meta">by {{ post.username }} &middot; {{ post.created_at }}</p>
+<div style="margin:1.5rem 0;">{{ post.body }}</div>
+<hr>
+<h3>Comments</h3>
+<div id="comments">
+    {% for comment in comments %}
+        <div class="comment">
+            <strong>{{ comment.author }}</strong>
+            <span class="meta">{{ comment.created_at }}</span>
+            <p>{{ comment.body }}</p>
+        </div>
+    {% endfor %}
+    {% if not comments %}
+        <p style="color:#999;">No comments yet.</p>
+    {% endif %}
+</div>
+<div class="card" style="margin-top:1rem;">
+    <h4>Leave a comment</h4>
+    <form hx-post="/comment/{{ post.id }}" hx-target="#comments" hx-swap="beforeend"
+          hx-on::after-request="this.reset()">
+        <div class="form-field">
+            <input name="author" placeholder="Your name" required>
+        </div>
+        <div class="form-field">
+            <textarea name="body" placeholder="Write a comment..." required style="min-height:80px;"></textarea>
+        </div>
+        <button class="btn btn-primary">Post Comment</button>
+    </form>
+</div>
+{% endblock %}

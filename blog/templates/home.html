@@ -1,0 +1,15 @@
+{% extends "layout.html" %}
+{% block title %}Apex Blog{% endblock %}
+{% block content %}
+<h1>Apex Blog</h1>
+{% for post in posts %}
+    <div class="card post-card">
+        <h2><a href="/post/{{ post.id }}">{{ post.title }}</a></h2>
+        <p class="meta">by {{ post.username }} &middot; {{ post.created_at }}</p>
+        <p>{{ post.excerpt }}</p>
+    </div>
+{% endfor %}
+{% if not posts %}
+    <p style="color:#999;text-align:center;padding:2rem;">No posts yet. <a href="/new">Write the first one!</a></p>
+{% endif %}
+{% endblock %}

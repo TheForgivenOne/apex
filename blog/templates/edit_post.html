@@ -1,0 +1,17 @@
+{% extends "layout.html" %}
+{% block title %}Edit Post{% endblock %}
+{% block content %}
+<h1>Edit Post</h1>
+<form method="POST" action="/edit/{{ post.id }}">
+    <div class="form-field">
+        <label>Title</label>
+        <input name="title" value="{{ post.title }}" required>
+    </div>
+    <div class="form-field">
+        <label>Body</label>
+        <textarea name="body" required>{{ post.body }}</textarea>
+    </div>
+    <button class="btn btn-primary">Update Post</button>
+    <a href="/dashboard" class="btn">Cancel</a>
+</form>
+{% endblock %}
